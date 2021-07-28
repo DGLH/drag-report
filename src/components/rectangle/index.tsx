@@ -1,12 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
 
-const Rect = styled.div`
-  width: 70px;
-  height: 30px;
-  border: 1px solid #000;
-  cursor: grab;
-`;
+import { Rect } from './styled';
 
 interface Props {
   type: string;

@@ -1,32 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
-import styled from 'styled-components';
 import { fromEvent, partition, Subscription } from 'rxjs';
 import { switchMap, takeUntil, map, filter } from 'rxjs/operators';
 
-import Child from './child';
-import Shape from './shape';
-import { DragComponent } from '../types';
-
-const backImg =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2QwZDBkMCIgb3BhY2l0eT0iMC4yIiBzdHJva2Utd2lkdGg9IjEiLz48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDBkMGQwIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=';
-
-const Cloth = styled.div`
-  position: relative;
-  width: 500px;
-  height: 500px;
-  background-color: #fff;
-  margin: 0 auto;
-  contain: layout;
-  overflow: hidden;
-  background-image: url(${backImg});
-`;
+import { Child } from './child';
+import { Shape } from './shape';
+import { Wrapper } from './styled';
+import { DragComponent } from '../../types';
 
 interface Props {
   childs: DragComponent[];
   setChilds: (childs: DragComponent[]) => void;
 }
 
-const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
+const Cloth: React.FC<Props> = ({ childs, setChilds }) => {
   const currentLength = useRef(childs.length);
   const subscribe = useRef<Subscription>();
 
@@ -40,6 +26,7 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
     height: 0,
   });
 
+  // 当从 Shape 组件中更新当前活动元素时，才需要更新
   useEffect(() => {
     if (updateChild.x || updateChild.y || updateChild.width || updateChild.height) {
       const copy = [...childs];
@@ -57,10 +44,11 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
       setTransform({ x: 0, y: 0 });
       setChilds(copy);
     }
-  }, [active, childs, setChilds, transfom, updateChild]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateChild]);
 
   useEffect(() => {
-    if (canChangeSelf && active > -1) {
+    if (canChangeSelf && active > -1 && transfom.x && transfom.y) {
       const activeChild = childs[active];
       const copy = [...childs];
       copy[active] = { ...activeChild, x: activeChild.x + transfom.x, y: activeChild.y + transfom.y };
@@ -69,6 +57,7 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
       subscribe.current?.unsubscribe();
     }
     setCanChangeSelf(false);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canChangeSelf]);
 
@@ -110,7 +99,7 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
   }, []);
 
   return (
-    <Cloth id="drag-cloth">
+    <Wrapper id="drag-cloth">
       {childs.map((child, index) => {
         if (active === index)
           return (
@@ -124,8 +113,8 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
           );
         return <Child props={child} key={index} index={index} active={active} />;
       })}
-    </Cloth>
+    </Wrapper>
   );
 };
 
-export default Wrapper;
+export { Cloth };

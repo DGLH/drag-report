@@ -1,47 +1,43 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import styled from 'styled-components';
 import { animationFrameScheduler, fromEvent, Subscription } from 'rxjs';
 import { filter, map, observeOn, switchMap, takeUntil, tap } from 'rxjs/operators';
 
-import { AllType, initComponents, DragComponent } from '../types';
-import Cloth from './cloth';
+import { Cloth } from './cloth';
+import { DISTANCE } from './constants';
+import { DragRect, Wrapper } from './styled';
 import Menus, { MenusProps, initMenus } from 'components/menus';
+import { AllType, initComponents, DragComponent } from '../types';
 
-const DISTANCE = 1;
-
-const Wrapper = styled.div`
-  width: 100%;
-  height: 100%;
-  flex: 1;
-  background-color: #eee;
-  overflow: auto;
-`;
-
-const DragRect = styled.span<DragRect>`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: ${(props) => `${props.width}px`};
-  height: ${(props) => `${props.height}px`};
-  transform: ${(props) => `translate(${props.x}px, ${props.y}px)`};
-  background-color: #0f0;
-`;
-
-interface DragRect {
-  width: number;
-  height: number;
-  x: number;
-  y: number;
-}
-
-const Center = () => {
+const Center = React.memo(() => {
   const [dragState, setDragState] = useState<DragRect>({ width: 0, height: 0, x: 0, y: 0 });
   const [childs, setChilds] = useState<DragComponent[]>([]);
+  console.log('🚀 ~ file: center.tsx ~ line 14 ~ Center ~ childs', childs);
   const [menus, setMenus] = useState<MenusProps>(initMenus);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
 
+  const operationQueue = useRef<Array<DragComponent[]>>([[]]);
+  const shouldUpdateQue = useRef<boolean>(false);
   const subscribe = useRef<Subscription[]>([]);
 
-  const createChildMenu = useCallback(
+  useEffect(() => {
+    setCurrentIndex((current) => {
+      // debugger;
+      if (!shouldUpdateQue.current) return current;
+      const next = current + 1;
+      const slice = operationQueue.current.slice(0, next);
+      slice.push(childs);
+      operationQueue.current = slice;
+      shouldUpdateQue.current = false;
+
+      return current + 1;
+    });
+  }, [childs]);
+
+  useEffect(() => {
+    setChilds(operationQueue.current[currentIndex]);
+  }, [currentIndex]);
+
+  const createChildMenus = useCallback(
     (index: string) => [
       {
         label: '删除',
@@ -132,6 +128,37 @@ const Center = () => {
     [childs],
   );
 
+  const createDefaultMenus = useCallback(
+    () => [
+      {
+        label: '撤销',
+        cmd: 'cmd + z',
+        click: () => {
+          shouldUpdateQue.current = true;
+          setCurrentIndex((current) => {
+            if (current === 0) return 0;
+            return current - 1;
+          });
+          setMenus(initMenus);
+        },
+      },
+      {
+        label: '恢复',
+        cmd: 'cmd + shift + z',
+        click: () => {
+          shouldUpdateQue.current = true;
+          setCurrentIndex((current) => {
+            if (current === childs.length - 1) return current;
+            return current + 1;
+          });
+          setMenus(initMenus);
+        },
+      },
+    ],
+    [childs.length],
+  );
+
+  // 监听 center 组件中的右键点击事件，阻止默认的菜单显示，显示自定义菜单；因为要刷新 effect，所以需要在每次进来时清掉之前的 subscribe
   useEffect(() => {
     if (subscribe.current[0]) {
       subscribe.current[0].unsubscribe();
@@ -142,30 +169,29 @@ const Center = () => {
       event.preventDefault();
 
       const index = (event.target as HTMLElement).dataset.index;
-      if (!index) return;
-      const thisMenus: MenusProps = {
-        active: true,
-        x: event.x,
-        y: event.y,
-        menus: createChildMenu(index),
-      };
+      let menus = createDefaultMenus();
+      if (index) {
+        menus = createChildMenus(index);
+      }
 
-      setMenus(thisMenus);
+      setMenus({ active: true, x: event.x, y: event.y, menus });
     });
-  }, [createChildMenu]);
+  }, [createChildMenus, createDefaultMenus]);
 
+  // 当菜单显示的点击菜单中的选项将会手动触发点击事件，菜单不存在的时候不做任何处理；因为要刷新 effect，所以需要在每次进来时清掉之前的 subscribe
   useEffect(() => {
     if (subscribe.current[1]) {
       subscribe.current[1].unsubscribe();
     }
 
     subscribe.current[1] = fromEvent(document, 'mousedown').subscribe((e) => {
-      if ((e.target as HTMLElement).dataset.menu) {
+      if (menus.active && (e.target as HTMLElement).dataset.menu) {
         (e.target as HTMLElement).click();
       } else if (menus.active) setMenus(initMenus);
     });
   }, [menus.active]);
 
+  // 监听 #drag-content 上的点击事件，拖拽事件发生时监听 mousemove 事件，当鼠标进入画布区域才会将组件加入
   useEffect(() => {
     let selected: AllType | null;
 
@@ -237,6 +263,6 @@ const Center = () => {
       <Menus {...menus} />
     </Wrapper>
   );
-};
+});
 
 export { Center };
