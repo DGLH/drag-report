@@ -37,13 +37,11 @@ interface DragRect {
 const Center = () => {
   const [dragState, setDragState] = useState<DragRect>({ width: 0, height: 0, x: 0, y: 0 });
   const [childs, setChilds] = useState<DragComponent[]>([]);
-  // 为了在鼠标抬起时更新元素且 useEffect 不会依赖 childs，使用一个中间变量，通过监听中间变量来更新 childs
-  const [middle, setMiddle] = useState<DragComponent | null>();
   const [menus, setMenus] = useState<MenusProps>(initMenus);
 
   const subscribe = useRef<Subscription[]>([]);
 
-  const childMenu = useCallback(
+  const createChildMenu = useCallback(
     (index: string) => [
       {
         label: '删除',
@@ -62,7 +60,7 @@ const Center = () => {
           setChilds(
             childs.map((child, chidIndex) => {
               if (chidIndex !== +index) return child;
-              return { ...child, style: { ...child.style, 'z-index': child.style['z-index']! + 1 } };
+              return { ...child, style: { ...child.style, zIndex: child.style.zIndex! + 1 } };
             }),
           );
           setMenus(initMenus);
@@ -75,7 +73,7 @@ const Center = () => {
           setChilds(
             childs.map((child, chidIndex) => {
               if (chidIndex !== +index) return child;
-              return { ...child, style: { ...child.style, 'z-index': child.style['z-index']! - 1 } };
+              return { ...child, style: { ...child.style, zIndex: child.style.zIndex! - 1 } };
             }),
           );
           setMenus(initMenus);
@@ -92,9 +90,9 @@ const Center = () => {
                 ...child,
                 style: {
                   ...child.style,
-                  'z-index':
+                  zIndex:
                     childs.reduce<number>((acc, current, index) => {
-                      const zIndex = current.style['z-index']!;
+                      const zIndex = current.style.zIndex!;
                       if (index === childs.length - 1 && zIndex < 1999 && acc < 1999) {
                         return 1999;
                       }
@@ -122,7 +120,7 @@ const Center = () => {
                 ...child,
                 style: {
                   ...child.style,
-                  'z-index': 0,
+                  zIndex: 0,
                 },
               };
             }),
@@ -149,12 +147,12 @@ const Center = () => {
         active: true,
         x: event.x,
         y: event.y,
-        menus: childMenu(index),
+        menus: createChildMenu(index),
       };
 
       setMenus(thisMenus);
     });
-  }, [childMenu]);
+  }, [createChildMenu]);
 
   useEffect(() => {
     if (subscribe.current[1]) {
@@ -167,13 +165,6 @@ const Center = () => {
       } else if (menus.active) setMenus(initMenus);
     });
   }, [menus.active]);
-
-  useEffect(() => {
-    if (middle) {
-      setChilds([...childs, { ...middle, style: { ...middle.style, 'z-index': childs.length } }]);
-      setMiddle(null);
-    }
-  }, [childs, middle]);
 
   useEffect(() => {
     let selected: AllType | null;
@@ -197,11 +188,15 @@ const Center = () => {
             event.y <= clientRect!.bottom
           ) {
             const component = initComponents[selected!];
-            setMiddle({
-              ...component,
-              x: event.x - clientRect!.x,
-              y: event.y - clientRect!.y,
-            });
+            setChilds((c) => [
+              ...c,
+              {
+                ...component,
+                x: event.x - clientRect!.x,
+                y: event.y - clientRect!.y,
+                style: { ...component.style, zIndex: c.length },
+              },
+            ]);
           }
 
           selected = null;

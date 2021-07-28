@@ -1,18 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { fromEvent, Subscription, merge } from 'rxjs';
-import { switchMap, takeUntil, map } from 'rxjs/operators';
+import { fromEvent, merge, animationFrameScheduler } from 'rxjs';
+import { switchMap, takeUntil, map, observeOn, filter, tap } from 'rxjs/operators';
 
 import Child, { ChildPorps } from './child';
 
-const Wrapper = styled.div<{ width: number; height: number; x: number; y: number }>`
+const Wrapper = styled.div`
   border: 1px dashed rgb(0, 168, 255);
   position: absolute;
   top: 0;
   left: 0;
-  width: ${(props) => `${props.width}px`};
-  height: ${(props) => `${props.height}px`};
-  transform: ${(props) => `translate(${props.x - 1}px, ${props.y - 1}px)`};
   will-change: transform;
 
   & .shape-dot {
@@ -25,6 +22,7 @@ const Wrapper = styled.div<{ width: number; height: number; x: number; y: number
     left: 0;
     z-index: 10086;
     will-change: transform;
+    user-select: none;
   }
 
   & .shape-dot:nth-child(1) {
@@ -53,9 +51,26 @@ const Wrapper = styled.div<{ width: number; height: number; x: number; y: number
   }
 `;
 
-const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
-  const [childProps, setChildProps] = useState(props);
-  const subscribe = useRef<Subscription>();
+interface Props extends ChildPorps {
+  updataActive: (child: { x: number; y: number; width: number; height: number }) => void;
+}
+
+const Shape: React.FC<Props> = ({ props, updataActive, ...args }) => {
+  const [childProps, setChildProps] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [shouldUpdate, setShouldUpdate] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (shouldUpdate) {
+      updataActive({
+        x: childProps?.x,
+        y: childProps?.y,
+        width: childProps?.width,
+        height: childProps?.height,
+      });
+      setChildProps({ x: 0, y: 0, width: 0, height: 0 });
+    }
+    setShouldUpdate(false);
+  }, [childProps, shouldUpdate, updataActive]);
 
   useEffect(() => {
     const shapeDots = document.getElementsByClassName('shape-dot')!;
@@ -72,18 +87,22 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     const mouseup$ = fromEvent<MouseEvent>(document, 'mouseup');
 
     const one$ = dotsOne$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { x: init.x + init.style.width, y: init.y + init.style.height };
-
             return {
-              ...init,
-              x: event.x,
-              y: event.y,
-              style: { width: endPoint.x - event.x, height: endPoint.y - event.y },
+              x: event.x - e.x,
+              y: event.y - e.y,
+              width: e.x - event.x,
+              height: e.y - event.y,
             };
           }),
         ),
@@ -91,31 +110,45 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     );
 
     const two$ = dotsTwo$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { y: init.y + init.style.height };
-
-            return { ...init, y: event.y, style: { width: init.style.width, height: endPoint.y - event.y } };
+            return {
+              x: 0,
+              y: event.y - e.y,
+              width: 0,
+              height: e.y - event.y,
+            };
           }),
         ),
       ),
     );
 
     const three$ = dotsThree$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { x: init.x, y: init.y + init.style.height };
-
             return {
-              ...init,
-              y: event.y,
-              style: { width: event.x - endPoint.x, height: endPoint.y - event.y },
+              x: 0,
+              y: event.y - e.y,
+              width: event.x - e.x,
+              height: e.y - event.y,
             };
           }),
         ),
@@ -123,17 +156,22 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     );
 
     const four$ = dotsFour$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { x: init.x + init.style.width };
-
             return {
-              ...init,
-              x: event.x,
-              style: { width: endPoint.x - event.x, height: init.style.height },
+              x: event.x - e.x,
+              y: 0,
+              width: e.x - event.x,
+              height: 0,
             };
           }),
         ),
@@ -141,16 +179,22 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     );
 
     const five$ = dotsFive$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { x: init.x };
-
             return {
-              ...init,
-              style: { width: event.x - endPoint.x, height: init.style.height },
+              x: 0,
+              y: 0,
+              width: event.x - e.x,
+              height: 0,
             };
           }),
         ),
@@ -158,17 +202,22 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     );
 
     const six$ = dotsSix$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { x: init.x + init.style.width };
-
             return {
-              ...init,
-              x: event.x,
-              style: { width: endPoint.x - event.x, height: init.style.height },
+              x: event.x - e.x,
+              y: 0,
+              width: e.x - event.x,
+              height: event.y - e.y,
             };
           }),
         ),
@@ -176,16 +225,22 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     );
 
     const seven$ = dotsSeven$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { y: init.y };
-
             return {
-              ...init,
-              style: { width: init.style.width, height: event.y - endPoint.y },
+              x: 0,
+              y: 0,
+              width: 0,
+              height: event.y - e.y,
             };
           }),
         ),
@@ -193,47 +248,82 @@ const Shape: React.FC<ChildPorps> = ({ props, ...args }) => {
     );
 
     const eight$ = dotsEight$.pipe(
-      switchMap(() =>
+      filter((e) => e.buttons === 1),
+      tap(() => {
+        const upSubscribe = mouseup$.subscribe(() => {
+          setShouldUpdate(true);
+          upSubscribe.unsubscribe();
+        });
+      }),
+      switchMap((e) =>
         mousemove$.pipe(
           takeUntil(mouseup$),
           map((event) => {
-            const init = childProps;
-            const endPoint = { x: init.x, y: init.y };
-
             return {
-              ...init,
-              style: { width: event.x - endPoint.x, height: event.y - endPoint.y },
+              x: 0,
+              y: 0,
+              width: event.x - e.x,
+              height: event.y - e.y,
             };
           }),
         ),
       ),
     );
 
-    const mergeAll$ = merge(one$, two$, three$, four$, five$, six$, seven$, eight$);
+    const mergeAll$ = merge(one$, two$, three$, four$, five$, six$, seven$, eight$).pipe(
+      observeOn(animationFrameScheduler),
+    );
 
-    subscribe.current = mergeAll$.subscribe(setChildProps);
-  }, [childProps]);
-  const { width, height } = childProps.style;
+    const moveSubscribe = mergeAll$.subscribe((result) => setChildProps(result));
+
+    return () => moveSubscribe.unsubscribe();
+  }, [updataActive]);
+
+  const currentWidth = props.style.width + childProps.width;
+  const currentHeight = props.style.height + childProps.height;
 
   return (
-    <Wrapper width={props.style.width} height={props.style.height} x={props.x} y={props.y}>
+    <Wrapper
+      style={{
+        width: `${currentWidth + 0.5}px`,
+        height: `${currentHeight + 0.5}px`,
+        transform: `translate(${props.x + childProps.x - 1}px, ${props.y + childProps.y - 1}px)`,
+        zIndex: props.style.zIndex,
+      }}
+    >
       <span className="shape-dot" data-dot="nw" style={{ transform: `translate(-5.2px, -5.2px)` }} />
-      <span className="shape-dot" data-dot="n" style={{ transform: `translate(${width / 2 - 4}px, -5.2px)` }} />
-      <span className="shape-dot" data-dot="ne" style={{ transform: `translate(${width - 4}px, -5.2px)` }} />
-      <span className="shape-dot" data-dot="w" style={{ transform: `translate(-5.2px, ${height / 2 - 4}px)` }} />
+      <span className="shape-dot" data-dot="n" style={{ transform: `translate(${currentWidth / 2 - 4}px, -5.2px)` }} />
+      <span className="shape-dot" data-dot="ne" style={{ transform: `translate(${currentWidth - 4}px, -5.2px)` }} />
+      <span className="shape-dot" data-dot="w" style={{ transform: `translate(-5.2px, ${currentHeight / 2 - 4}px)` }} />
       <span
         className="shape-dot"
         data-dot="e"
-        style={{ transform: `translate(${width - 4}px, ${height / 2 - 4}px)` }}
+        style={{ transform: `translate(${currentWidth - 4}px, ${currentHeight / 2 - 4}px)` }}
       />
-      <span className="shape-dot" data-dot="sw" style={{ transform: `translate(-5.2px, ${height - 4}px)` }} />
+      <span className="shape-dot" data-dot="sw" style={{ transform: `translate(-5.2px, ${currentHeight - 4}px)` }} />
       <span
         className="shape-dot"
         data-dot="s"
-        style={{ transform: `translate(${width / 2 - 4}px, ${height - 4}px)` }}
+        style={{ transform: `translate(${currentWidth / 2 - 4}px, ${currentHeight - 4}px)` }}
       />
-      <span className="shape-dot" data-dot="se" style={{ transform: `translate(${width - 4}px, ${height - 4}px)` }} />
-      <Child {...args} props={childProps} />
+      <span
+        className="shape-dot"
+        data-dot="se"
+        style={{ transform: `translate(${currentWidth - 4}px, ${currentHeight - 4}px)` }}
+      />
+      <Child
+        {...args}
+        props={{
+          ...props,
+          x: props.x + childProps.x,
+          y: props.y + childProps.y,
+          style: {
+            ...props.style,
+            width: props.style.width + childProps.width,
+            height: props.style.height + childProps.height,
+          },
+        }}
+      />
     </Wrapper>
   );
 };

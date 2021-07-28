@@ -5,7 +5,7 @@ export interface Component {
   style: {
     width: number;
     height: number;
-    'z-index'?: number;
+    zIndex?: number;
   };
 }
 

@@ -33,6 +33,31 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
   const [transfom, setTransform] = useState({ x: 0, y: 0 });
   const [canChangeSelf, setCanChangeSelf] = useState(false);
   const [active, setActive] = useState<number>(-1);
+  const [updateChild, setUpdateChild] = useState<{ x: number; y: number; width: number; height: number }>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+
+  useEffect(() => {
+    if (updateChild.x || updateChild.y || updateChild.width || updateChild.height) {
+      const copy = [...childs];
+      copy[active] = {
+        ...copy[active],
+        x: copy[active].x + updateChild.x + transfom.x,
+        y: copy[active].y + updateChild.y + transfom.y,
+        style: {
+          ...copy[active].style,
+          width: copy[active].style.width + updateChild.width,
+          height: copy[active].style.height + updateChild.height,
+        },
+      };
+      setUpdateChild({ x: 0, y: 0, width: 0, height: 0 });
+      setTransform({ x: 0, y: 0 });
+      setChilds(copy);
+    }
+  }, [active, childs, setChilds, transfom, updateChild]);
 
   useEffect(() => {
     if (canChangeSelf && active > -1) {
@@ -94,6 +119,7 @@ const Wrapper: React.FC<Props> = ({ childs, setChilds }) => {
               props={{ ...child, x: child.x + transfom.x, y: child.y + transfom.y }}
               index={index}
               active={active}
+              updataActive={setUpdateChild}
             />
           );
         return <Child props={child} key={index} index={index} active={active} />;
