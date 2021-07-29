@@ -26,7 +26,7 @@ const Cloth: React.FC<Props> = ({ childs, setChilds }) => {
     height: 0,
   });
 
-  // 当从 Shape 组件中更新当前活动元素时，才需要更新
+  // 当从 Shape 组件中更新当前活动元素时，才需要更新，放大缩小
   useEffect(() => {
     if (updateChild.x || updateChild.y || updateChild.width || updateChild.height) {
       const copy = [...childs];
@@ -47,6 +47,7 @@ const Cloth: React.FC<Props> = ({ childs, setChilds }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateChild]);
 
+  // 移动
   useEffect(() => {
     if (canChangeSelf && active > -1 && transfom.x && transfom.y) {
       const activeChild = childs[active];
@@ -69,7 +70,6 @@ const Cloth: React.FC<Props> = ({ childs, setChilds }) => {
 
   useEffect(() => {
     const mousedown$ = fromEvent<MouseEvent>(document, 'mousedown');
-
     const mousemove$ = fromEvent<MouseEvent>(document, 'mousemove');
     const mouseup$ = fromEvent<MouseEvent>(document, 'mouseup');
 

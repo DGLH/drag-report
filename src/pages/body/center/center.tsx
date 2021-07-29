@@ -11,7 +11,6 @@ import { AllType, initComponents, DragComponent } from '../types';
 const Center = React.memo(() => {
   const [dragState, setDragState] = useState<DragRect>({ width: 0, height: 0, x: 0, y: 0 });
   const [childs, setChilds] = useState<DragComponent[]>([]);
-  console.log('🚀 ~ file: center.tsx ~ line 14 ~ Center ~ childs', childs);
   const [menus, setMenus] = useState<MenusProps>(initMenus);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
@@ -20,21 +19,23 @@ const Center = React.memo(() => {
   const subscribe = useRef<Subscription[]>([]);
 
   useEffect(() => {
-    setCurrentIndex((current) => {
-      // debugger;
-      if (!shouldUpdateQue.current) return current;
-      const next = current + 1;
-      const slice = operationQueue.current.slice(0, next);
-      slice.push(childs);
-      operationQueue.current = slice;
-      shouldUpdateQue.current = false;
+    if (shouldUpdateQue.current) {
+      setCurrentIndex((current) => {
+        const next = current + 1;
+        const sliceQueue = operationQueue.current.slice(0, next);
+        sliceQueue.push(childs);
+        operationQueue.current = sliceQueue;
 
-      return current + 1;
-    });
+        return current + 1;
+      });
+    }
+    shouldUpdateQue.current = true;
   }, [childs]);
 
   useEffect(() => {
-    setChilds(operationQueue.current[currentIndex]);
+    if (!shouldUpdateQue.current) {
+      setChilds(operationQueue.current[currentIndex]);
+    }
   }, [currentIndex]);
 
   const createChildMenus = useCallback(
@@ -134,11 +135,11 @@ const Center = React.memo(() => {
         label: '撤销',
         cmd: 'cmd + z',
         click: () => {
-          shouldUpdateQue.current = true;
           setCurrentIndex((current) => {
             if (current === 0) return 0;
             return current - 1;
           });
+          shouldUpdateQue.current = false;
           setMenus(initMenus);
         },
       },
@@ -146,16 +147,16 @@ const Center = React.memo(() => {
         label: '恢复',
         cmd: 'cmd + shift + z',
         click: () => {
-          shouldUpdateQue.current = true;
           setCurrentIndex((current) => {
-            if (current === childs.length - 1) return current;
+            if (current === operationQueue.current.length - 1) return current;
             return current + 1;
           });
+          shouldUpdateQue.current = false;
           setMenus(initMenus);
         },
       },
     ],
-    [childs.length],
+    [],
   );
 
   // 监听 center 组件中的右键点击事件，阻止默认的菜单显示，显示自定义菜单；因为要刷新 effect，所以需要在每次进来时清掉之前的 subscribe
@@ -220,7 +221,7 @@ const Center = React.memo(() => {
                 ...component,
                 x: event.x - clientRect!.x,
                 y: event.y - clientRect!.y,
-                style: { ...component.style, zIndex: c.length },
+                style: { ...component.style, zIndex: c.length + 1 },
               },
             ]);
           }
